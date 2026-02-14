@@ -1,12 +1,23 @@
-import React from 'react'
+import { useEffect } from "react";
+import { useRouter } from "next/router";
+import { SEO } from "@/components/SEO";
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push("/admin/login");
+  }, [router]);
+
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-foreground">Hello World</h1>
-        <p className="text-lg text-muted-foreground">This is going to be your softgen app, start by describing your project.</p>
+    <>
+      <SEO
+        title="Marriagepal Admin"
+        description="Admin dashboard for Marriagepal dating app management"
+      />
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg text-slate-600">Redirecting to admin login...</p>
       </div>
-    </main>
-  )
+    </>
+  );
 }
