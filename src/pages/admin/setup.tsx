@@ -1,162 +1,287 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
 import { SEO } from "@/components/SEO";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { AlertCircle, CheckCircle, Shield } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function AdminSetup() {
   const router = useRouter();
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    confirmPassword: ""
-  });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [hasAdmins, setHasAdmins] = useState(false);
+  const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    checkSetupStatus();
+    checkAdminUsers();
   }, []);
 
-  const checkSetupStatus = async () => {
+  const checkAdminUsers = async () => {
     try {
-      // Check if any admin exists
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("admin_users")
-        .select("*", { count: "exact", head: true });
+        .select("id")
+        .limit(1);
 
       if (error) throw error;
-
-      if (count && count > 0) {
-        // Admins already exist, redirect to login
-        router.push("/admin/login");
-      }
-    } catch (error) {
-      console.error("Setup check failed:", error);
+      setHasAdmins(data && data.length > 0);
+    } catch (err) {
+      console.error("Error checking admin users:", err);
+      setError("Failed to check admin status. Please try again.");
     } finally {
-      setIsLoading(false);
+      setChecking(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+    setError("");
+    setSuccess("");
+
+    // Validation
+    if (!email || !password || !confirmPassword) {
+      setError("All fields are required");
       return;
     }
 
-    setIsSubmitting(true);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // 1. Sign up the user in Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+      // Try to sign up first
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("No user created");
+      let userId = signUpData?.user?.id;
 
-      // 2. Insert into admin_users (allowed by bootstrap policy if table is empty)
+      // If user already exists, try to sign in instead
+      if (signUpError?.message?.includes("already registered")) {
+        console.log("User already exists, attempting sign in...");
+        
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          setError("User already exists but password is incorrect. Please use the correct password or use a different email.");
+          setLoading(false);
+          return;
+        }
+
+        userId = signInData?.user?.id;
+        console.log("Signed in existing user:", userId);
+      } else if (signUpError) {
+        throw signUpError;
+      }
+
+      if (!userId) {
+        throw new Error("Failed to create or sign in user");
+      }
+
+      // Check if user is already an admin
+      const { data: existingAdmin } = await supabase
+        .from("admin_users")
+        .select("id")
+        .eq("id", userId)
+        .single();
+
+      if (existingAdmin) {
+        setSuccess("You are already an admin! Redirecting to dashboard...");
+        setTimeout(() => router.push("/admin/dashboard"), 2000);
+        return;
+      }
+
+      // Add user to admin_users table
       const { error: adminError } = await supabase
         .from("admin_users")
         .insert({
-          id: authData.user.id,
-          email: formData.email,
-          role: "full_admin"
+          id: userId,
+          email,
+          role: "full_admin",
+          is_active: true,
         });
 
       if (adminError) throw adminError;
 
-      toast({
-        title: "Setup Complete",
-        description: "Initial admin account created. Redirecting to dashboard...",
-      });
+      // Grant all privileges to the new admin
+      const { data: privileges } = await supabase
+        .from("admin_privileges")
+        .select("id");
 
-      // Give a moment for data propagation
-      setTimeout(() => {
-        router.push("/admin/dashboard");
-      }, 1500);
+      if (privileges && privileges.length > 0) {
+        const privilegeGrants = privileges.map(p => ({
+          user_id: userId,
+          privilege_id: p.id,
+        }));
 
-    } catch (error: any) {
-      console.error("Setup error:", error);
-      toast({ 
-        title: "Setup Failed", 
-        description: error.message || "Could not create admin account", 
-        variant: "destructive" 
-      });
+        await supabase
+          .from("admin_user_privileges")
+          .insert(privilegeGrants);
+      }
+
+      setSuccess("Admin account created successfully! Redirecting to dashboard...");
+      setTimeout(() => router.push("/admin/dashboard"), 2000);
+
+    } catch (err: any) {
+      console.error("Setup error:", err);
+      setError(err.message || "Failed to create admin account. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  if (isLoading) {
+  if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-      </div>
+      <>
+        <SEO title="Admin Setup - MarriagePal" />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">Checking admin status...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    );
+  }
+
+  if (hasAdmins) {
+    return (
+      <>
+        <SEO title="Admin Setup - MarriagePal" />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-6 w-6" />
+                Setup Complete
+              </CardTitle>
+              <CardDescription>
+                Admin users already exist in the system
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  The initial admin setup has already been completed. Please use the login page to access the admin panel.
+                </AlertDescription>
+              </Alert>
+              <Button 
+                onClick={() => router.push("/admin/login")}
+                className="w-full"
+              >
+                Go to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </>
     );
   }
 
   return (
     <>
-      <SEO title="Initial Admin Setup - Marriagepal" />
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <SEO title="Admin Setup - MarriagePal" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto bg-indigo-100 w-12 h-12 rounded-full flex items-center justify-center mb-4">
-              <ShieldCheck className="w-6 h-6 text-indigo-600" />
-            </div>
-            <CardTitle className="text-2xl">Admin Setup</CardTitle>
-            <CardDescription>Create the first System Administrator account</CardDescription>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-6 w-6" />
+              Initial Admin Setup
+            </CardTitle>
+            <CardDescription>
+              Create the first administrator account for MarriagePal
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSignup} className="space-y-4">
+            <form onSubmit={handleSetup} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {success && (
+                <Alert className="border-green-500 text-green-700">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertDescription>{success}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Admin Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="admin@marriagepal.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
-                  value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
+                  disabled={loading}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Enter secure password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
-                  value={formData.password}
-                  onChange={e => setFormData({...formData, password: e.target.value})}
+                  disabled={loading}
+                  minLength={8}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Minimum 8 characters
+                </p>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="confirm">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <Input
-                  id="confirm"
+                  id="confirmPassword"
                   type="password"
+                  placeholder="Re-enter password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  value={formData.confirmPassword}
-                  onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                  disabled={loading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Setting up...
-                  </>
-                ) : (
-                  "Create Admin Account"
-                )}
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  This will create a <strong>Full Administrator</strong> account with all privileges. Additional admins can be created from the Admin Privileges page.
+                </AlertDescription>
+              </Alert>
+
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Creating Admin Account..." : "Create Admin Account"}
               </Button>
             </form>
           </CardContent>
