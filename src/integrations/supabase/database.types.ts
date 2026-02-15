@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -15,6 +15,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_privileges: {
+        Row: {
+          category: Database["public"]["Enums"]["privilege_category"]
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["privilege_category"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["privilege_category"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      admin_user_privileges: {
+        Row: {
+          granted_at: string | null
+          granted_by: string | null
+          privilege_id: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string | null
+          granted_by?: string | null
+          privilege_id: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string | null
+          granted_by?: string | null
+          privilege_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_user_privileges_privilege_id_fkey"
+            columns: ["privilege_id"]
+            isOneToOne: false
+            referencedRelation: "admin_privileges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_user_privileges_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_users: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          last_login: string | null
+          role: Database["public"]["Enums"]["admin_role"]
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id: string
+          last_login?: string | null
+          role?: Database["public"]["Enums"]["admin_role"]
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          last_login?: string | null
+          role?: Database["public"]["Enums"]["admin_role"]
+        }
+        Relationships: []
+      }
       banned_countries: {
         Row: {
           country_code: string
@@ -102,6 +186,36 @@ export type Database = {
         }
         Relationships: []
       }
+      global_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          sent_by: string | null
+          subject: string
+          target_ids: string[] | null
+          target_type: Database["public"]["Enums"]["message_target_type"]
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          sent_by?: string | null
+          subject: string
+          target_ids?: string[] | null
+          target_type: Database["public"]["Enums"]["message_target_type"]
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          sent_by?: string | null
+          subject?: string
+          target_ids?: string[] | null
+          target_type?: Database["public"]["Enums"]["message_target_type"]
+        }
+        Relationships: []
+      }
       height: {
         Row: {
           created_at: string | null
@@ -123,6 +237,42 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           value_cm?: number
+        }
+        Relationships: []
+      }
+      help_documents: {
+        Row: {
+          category: string
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_published: boolean | null
+          title: string
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_published?: boolean | null
+          title: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_published?: boolean | null
+          title?: string
+          updated_at?: string | null
+          version?: number | null
         }
         Relationships: []
       }
@@ -149,6 +299,60 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      marriage_registry: {
+        Row: {
+          admin_notes: string | null
+          created_at: string | null
+          gift_sent: boolean | null
+          id: string
+          location: string
+          marriage_date: string
+          status: Database["public"]["Enums"]["registry_status"] | null
+          updated_at: string | null
+          user1_id: string | null
+          user2_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string | null
+          gift_sent?: boolean | null
+          id?: string
+          location: string
+          marriage_date: string
+          status?: Database["public"]["Enums"]["registry_status"] | null
+          updated_at?: string | null
+          user1_id?: string | null
+          user2_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string | null
+          gift_sent?: boolean | null
+          id?: string
+          location?: string
+          marriage_date?: string
+          status?: Database["public"]["Enums"]["registry_status"] | null
+          updated_at?: string | null
+          user1_id?: string | null
+          user2_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marriage_registry_user1_id_fkey"
+            columns: ["user1_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marriage_registry_user2_id_fkey"
+            columns: ["user2_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       match_criteria: {
         Row: {
@@ -326,6 +530,48 @@ export type Database = {
           {
             foreignKeyName: "matches_user2_id_fkey"
             columns: ["user2_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_recipients: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message_id: string | null
+          read_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message_id?: string | null
+          read_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message_id?: string | null
+          read_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_recipients_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "global_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_recipients_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -511,6 +757,47 @@ export type Database = {
         }
         Relationships: []
       }
+      support_tickets: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          priority: Database["public"]["Enums"]["ticket_priority"] | null
+          status: Database["public"]["Enums"]["ticket_status"] | null
+          subject: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"] | null
+          status?: Database["public"]["Enums"]["ticket_status"] | null
+          subject: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"] | null
+          status?: Database["public"]["Enums"]["ticket_status"] | null
+          subject?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       test_matches: {
         Row: {
           created_at: string | null
@@ -552,6 +839,38 @@ export type Database = {
             columns: ["user2_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_responses: {
+        Row: {
+          admin_id: string | null
+          created_at: string | null
+          id: string
+          message: string
+          ticket_id: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string
+          message: string
+          ticket_id?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_responses_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
             referencedColumns: ["id"]
           },
         ]
