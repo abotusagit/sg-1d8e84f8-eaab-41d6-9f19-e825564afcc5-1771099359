@@ -1,5 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { AdminUser } from "@/types/admin";
+import { supabase } from "@/integrations/supabase/client";
+import { useRouter } from "next/router";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminAuthContextType {
   admin: AdminUser | null;
@@ -14,17 +17,36 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefin
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     checkAuth();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        if (session?.user) {
+          await fetchAdminProfile(session.user.id, session.user.email!);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setAdmin(null);
+        router.push("/admin/login");
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const checkAuth = async () => {
     try {
-      const stored = localStorage.getItem("admin_session");
-      if (stored) {
-        const session = JSON.parse(stored);
-        setAdmin(session.admin);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await fetchAdminProfile(session.user.id, session.user.email!);
+      } else {
+        setAdmin(null);
       }
     } catch (error) {
       console.error("Auth check failed:", error);
@@ -33,24 +55,70 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchAdminProfile = async (userId: string, email: string) => {
+    try {
+      // First check if user exists in admin_users table
+      const { data: adminData, error } = await supabase
+        .from("admin_users")
+        .select(`
+          *,
+          admin_user_privileges (
+            privilege:admin_privileges (
+              id,
+              name,
+              description,
+              category
+            )
+          )
+        `)
+        .eq("id", userId)
+        .single();
+
+      if (error || !adminData) {
+        console.error("Not an admin user", error);
+        await supabase.auth.signOut();
+        toast({
+          title: "Access Denied",
+          description: "You do not have administrative privileges.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Transform privileges data structure
+      const privileges = adminData.admin_user_privileges?.map((p: any) => p.privilege) || [];
+
+      setAdmin({
+        id: adminData.id,
+        email: adminData.email,
+        role: adminData.role as "full_admin" | "custom_admin",
+        privileges,
+        created_at: adminData.created_at,
+        last_login: adminData.last_login
+      });
+    } catch (error) {
+      console.error("Error fetching admin profile:", error);
+    }
+  };
+
   const login = async (email: string, password: string, captchaToken: string) => {
-    // TODO: Implement actual Supabase authentication
-    // For now, mock authentication
-    const mockAdmin: AdminUser = {
-      id: "1",
+    // Verify CAPTCHA here (backend verification recommended in production)
+    if (captchaToken !== "10") { // Simple mock check for "7 + 3"
+      throw new Error("Invalid CAPTCHA");
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      role: "full_admin",
-      privileges: [],
-      created_at: new Date().toISOString(),
-    };
-    
-    setAdmin(mockAdmin);
-    localStorage.setItem("admin_session", JSON.stringify({ admin: mockAdmin }));
+      password,
+    });
+
+    if (error) throw error;
   };
 
   const logout = async () => {
+    await supabase.auth.signOut();
     setAdmin(null);
-    localStorage.removeItem("admin_session");
+    router.push("/admin/login");
   };
 
   const hasPrivilege = (privilege: string): boolean => {

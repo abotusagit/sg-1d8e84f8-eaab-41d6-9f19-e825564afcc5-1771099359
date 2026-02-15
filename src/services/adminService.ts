@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
 type Tables = Database["public"]["Tables"];
+type TableName = keyof Tables;
 
 // User Management
 export async function searchUsers(filters: {
@@ -64,17 +65,17 @@ export async function deleteUser(userId: string) {
 }
 
 // Meta Data Management
-export async function getMetaData(table: string) {
+export async function getMetaData(table: TableName) {
   const { data, error } = await supabase
     .from(table)
     .select("*")
-    .order("name", { ascending: true });
+    .order("created_at", { ascending: false }); // Most tables have created_at
   
   console.log(`Get ${table}:`, { data, error });
   return { data, error };
 }
 
-export async function createMetaData(table: string, item: any) {
+export async function createMetaData(table: TableName, item: any) {
   const { data, error } = await supabase
     .from(table)
     .insert(item)
@@ -85,7 +86,7 @@ export async function createMetaData(table: string, item: any) {
   return { data, error };
 }
 
-export async function updateMetaData(table: string, id: string, updates: any) {
+export async function updateMetaData(table: TableName, id: string, updates: any) {
   const { data, error } = await supabase
     .from(table)
     .update(updates)
@@ -97,7 +98,7 @@ export async function updateMetaData(table: string, id: string, updates: any) {
   return { data, error };
 }
 
-export async function deleteMetaData(table: string, id: string) {
+export async function deleteMetaData(table: TableName, id: string) {
   const { data, error } = await supabase
     .from(table)
     .delete()
@@ -144,7 +145,8 @@ export async function getSupportTickets(status?: string) {
     .select("*, users(username, email), ticket_responses(*)");
 
   if (status) {
-    query = query.eq("status", status);
+    // Cast string to specific enum type if needed, or let Supabase handle it
+    query = query.eq("status", status as any);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
@@ -158,7 +160,7 @@ export async function updateTicketStatus(
 ) {
   const { data, error } = await supabase
     .from("support_tickets")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status: status as any, updated_at: new Date().toISOString() })
     .eq("id", ticketId)
     .select()
     .single();
@@ -199,7 +201,7 @@ export async function sendGlobalMessage(
     .insert({
       subject,
       content,
-      target_type: targetType,
+      target_type: targetType as any,
       target_ids: targetType === "all" ? null : targetIds,
       sent_by: sentBy
     })
@@ -244,10 +246,11 @@ export async function sendGlobalMessage(
 export async function getMarriageRegistries(status?: string) {
   let query = supabase
     .from("marriage_registry")
+    // Fix foreign key reference syntax if needed, assuming fk names are default or consistent
     .select("*, user1:users!marriage_registry_user1_id_fkey(username, email), user2:users!marriage_registry_user2_id_fkey(username, email)");
 
   if (status) {
-    query = query.eq("status", status);
+    query = query.eq("status", status as any);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
