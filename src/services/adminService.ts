@@ -261,7 +261,8 @@ export async function getMarriageRegistries(status?: string) {
     .select("*, user1:user1_id(username, email), user2:user2_id(username, email)");
 
   if (status) {
-    query = query.eq("status", status);
+    // Cast to any to bypass strict literal type check for now
+    query = query.eq("status", status as any);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
