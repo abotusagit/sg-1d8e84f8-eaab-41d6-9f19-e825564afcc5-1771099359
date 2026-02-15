@@ -23,7 +23,7 @@ export default function TestMatchingPage() {
   const [selectedUser2, setSelectedUser2] = useState<any>(null);
   const [isMatching, setIsMatching] = useState(false);
 
-  const handleSearch = async (query: string, setResults: Function) => {
+  const handleSearch = async (query: string, setResults: (data: any[]) => void) => {
     if (!query) return;
     const { data } = await searchUsers({ username: query });
     setResults(data || []);
