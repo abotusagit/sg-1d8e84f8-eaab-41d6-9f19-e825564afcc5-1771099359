@@ -42,7 +42,7 @@ export async function getUserById(userId: string) {
   return { data, error };
 }
 
-export async function updateUser(userId: string, updates: Partial<Tables["users"]["Update"]>) {
+export async function updateUser(userId: string, updates: any) {
   const { data, error } = await supabase
     .from("users")
     .update(updates)
@@ -67,9 +67,9 @@ export async function deleteUser(userId: string) {
 // Meta Data Management
 export async function getMetaData(table: TableName) {
   const { data, error } = await supabase
-    .from(table)
+    .from(table as any)
     .select("*")
-    .order("created_at", { ascending: false }); // Most tables have created_at
+    .order("created_at", { ascending: false });
   
   console.log(`Get ${table}:`, { data, error });
   return { data, error };
@@ -77,7 +77,7 @@ export async function getMetaData(table: TableName) {
 
 export async function createMetaData(table: TableName, item: any) {
   const { data, error } = await supabase
-    .from(table)
+    .from(table as any)
     .insert(item)
     .select()
     .single();
@@ -88,7 +88,7 @@ export async function createMetaData(table: TableName, item: any) {
 
 export async function updateMetaData(table: TableName, id: string, updates: any) {
   const { data, error } = await supabase
-    .from(table)
+    .from(table as any)
     .update(updates)
     .eq("id", id)
     .select()
@@ -100,7 +100,7 @@ export async function updateMetaData(table: TableName, id: string, updates: any)
 
 export async function deleteMetaData(table: TableName, id: string) {
   const { data, error } = await supabase
-    .from(table)
+    .from(table as any)
     .delete()
     .eq("id", id);
   
@@ -158,7 +158,6 @@ export async function getSupportTickets(status?: string) {
     `);
 
   if (status) {
-    // Cast string to specific enum type if needed, or let Supabase handle it
     query = query.eq("status", status as any);
   }
 
@@ -257,17 +256,12 @@ export async function sendGlobalMessage(
 
 // Marriage Registry
 export async function getMarriageRegistries(status?: string) {
-  // Use simple foreign key syntax or specific column selection to avoid deep types
   let query = supabase
     .from("marriage_registry")
-    .select(`
-      *,
-      user1:user1_id (username, email),
-      user2:user2_id (username, email)
-    `);
+    .select("*, user1:user1_id(username, email), user2:user2_id(username, email)");
 
   if (status) {
-    query = query.eq("status", status as any);
+    query = query.eq("status", status);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
@@ -275,10 +269,7 @@ export async function getMarriageRegistries(status?: string) {
   return { data, error };
 }
 
-export async function updateMarriageRegistry(
-  registryId: string,
-  updates: Partial<Tables["marriage_registry"]["Update"]>
-) {
+export async function updateMarriageRegistry(registryId: string, updates: any) {
   const { data, error } = await supabase
     .from("marriage_registry")
     .update(updates)
