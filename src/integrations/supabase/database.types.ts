@@ -941,7 +941,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin_users_empty: { Args: never; Returns: boolean }
     }
     Enums: {
       admin_role: "full_admin" | "custom_admin"

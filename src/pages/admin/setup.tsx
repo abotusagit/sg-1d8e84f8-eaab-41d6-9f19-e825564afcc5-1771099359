@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { SEO } from "@/components/SEO";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, CheckCircle, Shield } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import { SEO } from "@/components/SEO";
 
 export default function AdminSetup() {
   const router = useRouter();
@@ -16,39 +16,21 @@ export default function AdminSetup() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [hasAdmins, setHasAdmins] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    checkAdminUsers();
-  }, []);
-
-  const checkAdminUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("admin_users")
-        .select("id")
-        .limit(1);
-
-      if (error) throw error;
-      setHasAdmins(data && data.length > 0);
-    } catch (err) {
-      console.error("Error checking admin users:", err);
-      setError("Failed to check admin status. Please try again.");
-    } finally {
-      setChecking(false);
-    }
-  };
+  const [success, setSuccess] = useState(false);
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setSuccess("");
+    setSuccess(false);
 
     // Validation
     if (!email || !password || !confirmPassword) {
       setError("All fields are required");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
 
@@ -57,179 +39,148 @@ export default function AdminSetup() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      // Try to sign up first
+      // Step 1: Create or sign in the user
+      let userId: string;
+      
+      // Try signing up first
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
       });
 
-      let userId = signUpData?.user?.id;
+      if (signUpError) {
+        if (signUpError.message.includes("already registered") || signUpError.message.includes("User already registered")) {
+          // User exists, try signing in
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
 
-      // If user already exists, try to sign in instead
-      if (signUpError?.message?.includes("already registered")) {
-        console.log("User already exists, attempting sign in...");
-        
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          if (signInError) {
+            setError(`Authentication failed: ${signInError.message}`);
+            setLoading(false);
+            return;
+          }
+
+          userId = signInData.user!.id;
+        } else {
+          setError(`Sign up failed: ${signUpError.message}`);
+          setLoading(false);
+          return;
+        }
+      } else {
+        userId = signUpData.user!.id;
+      }
+
+      // Step 2: Add user to admin_users table
+      const { error: adminInsertError } = await supabase
+        .from("admin_users")
+        .insert({
+          id: userId,
+          email: email,
+          role: "full_admin",
         });
 
-        if (signInError) {
-          setError("User already exists but password is incorrect. Please use the correct password or use a different email.");
+      if (adminInsertError) {
+        console.error("Admin insert error:", adminInsertError);
+        
+        // Check for specific error types
+        if (adminInsertError.message.includes("duplicate") || 
+            adminInsertError.code === "23505") {
+          setError("This user is already an admin. Please use the login page.");
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+        
+        if (adminInsertError.message.includes("policy") || 
+            adminInsertError.message.includes("permission") ||
+            adminInsertError.message.includes("privilege")) {
+          setError("Admin setup is already complete. An admin user already exists. Please use the login page.");
+          await supabase.auth.signOut();
           setLoading(false);
           return;
         }
 
-        userId = signInData?.user?.id;
-        console.log("Signed in existing user:", userId);
-      } else if (signUpError) {
-        throw signUpError;
-      }
-
-      if (!userId) {
-        throw new Error("Failed to create or sign in user");
-      }
-
-      // Check if user is already an admin
-      const { data: existingAdmin } = await supabase
-        .from("admin_users")
-        .select("id")
-        .eq("id", userId)
-        .single();
-
-      if (existingAdmin) {
-        setSuccess("You are already an admin! Redirecting to dashboard...");
-        setTimeout(() => router.push("/admin/dashboard"), 2000);
+        setError(`Failed to create admin user: ${adminInsertError.message}`);
+        await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
-      // Add user to admin_users table
-      const { error: adminError } = await supabase
-        .from("admin_users")
-        .insert({
-          id: userId,
-          email,
-          role: "full_admin",
-          is_active: true,
-        });
-
-      if (adminError) throw adminError;
-
-      // Grant all privileges to the new admin
+      // Step 3: Grant all privileges to the new admin
       const { data: privileges } = await supabase
         .from("admin_privileges")
         .select("id");
 
       if (privileges && privileges.length > 0) {
-        const privilegeGrants = privileges.map(p => ({
+        const privilegeInserts = privileges.map(p => ({
           user_id: userId,
           privilege_id: p.id,
+          granted_by: userId,
         }));
 
-        await supabase
+        const { error: privilegeError } = await supabase
           .from("admin_user_privileges")
-          .insert(privilegeGrants);
+          .insert(privilegeInserts);
+
+        if (privilegeError) {
+          console.error("Privilege grant error:", privilegeError);
+          // Don't fail the setup if privilege grant fails, admin is still created
+        }
       }
 
-      setSuccess("Admin account created successfully! Redirecting to dashboard...");
-      setTimeout(() => router.push("/admin/dashboard"), 2000);
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/admin/dashboard");
+      }, 2000);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Setup error:", err);
-      setError(err.message || "Failed to create admin account. Please try again.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   };
 
-  if (checking) {
-    return (
-      <>
-        <SEO title="Admin Setup - MarriagePal" />
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardContent className="pt-6">
-              <p className="text-center text-muted-foreground">Checking admin status...</p>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
-  }
-
-  if (hasAdmins) {
-    return (
-      <>
-        <SEO title="Admin Setup - MarriagePal" />
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-6 w-6" />
-                Setup Complete
-              </CardTitle>
-              <CardDescription>
-                Admin users already exist in the system
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  The initial admin setup has already been completed. Please use the login page to access the admin panel.
-                </AlertDescription>
-              </Alert>
-              <Button 
-                onClick={() => router.push("/admin/login")}
-                className="w-full"
-              >
-                Go to Login
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
-      <SEO title="Admin Setup - MarriagePal" />
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+      <SEO 
+        title="Admin Setup - Marriagepal Admin"
+        description="Create your first admin account for Marriagepal dating app administration"
+      />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-6 w-6" />
-              Initial Admin Setup
-            </CardTitle>
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <Shield className="h-6 w-6 text-purple-600" />
+            </div>
+            <CardTitle>Admin System Setup</CardTitle>
             <CardDescription>
-              Create the first administrator account for MarriagePal
+              Create your first admin account to manage Marriagepal
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="mb-4 border-green-200 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  Admin account created successfully! Redirecting...
+                </AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSetup} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {success && (
-                <Alert className="border-green-500 text-green-700">
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>{success}</AlertDescription>
-                </Alert>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="email">Admin Email</Label>
                 <Input
@@ -238,8 +189,8 @@ export default function AdminSetup() {
                   placeholder="admin@marriagepal.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                   disabled={loading}
+                  required
                 />
               </div>
 
@@ -248,16 +199,12 @@ export default function AdminSetup() {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter secure password"
+                  placeholder="Minimum 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
                   disabled={loading}
-                  minLength={8}
+                  required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Minimum 8 characters
-                </p>
               </div>
 
               <div className="space-y-2">
@@ -268,21 +215,29 @@ export default function AdminSetup() {
                   placeholder="Re-enter password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
                   disabled={loading}
+                  required
                 />
               </div>
 
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  This will create a <strong>Full Administrator</strong> account with all privileges. Additional admins can be created from the Admin Privileges page.
-                </AlertDescription>
-              </Alert>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Creating Admin Account..." : "Create Admin Account"}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Admin Account...
+                  </>
+                ) : (
+                  "Create Admin Account"
+                )}
               </Button>
+
+              <p className="text-sm text-center text-muted-foreground">
+                This will create a Full Admin account with all privileges
+              </p>
             </form>
           </CardContent>
         </Card>
