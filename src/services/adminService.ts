@@ -112,7 +112,13 @@ export async function deleteMetaData(table: TableName, id: string) {
 export async function searchPayments(userId?: string) {
   let query = supabase
     .from("payments")
-    .select("*, users(username, email)");
+    .select(`
+      *,
+      users:user_id (
+        username,
+        email
+      )
+    `);
 
   if (userId) {
     query = query.eq("user_id", userId);
@@ -142,7 +148,14 @@ export async function getPaymentStats(startDate?: string, endDate?: string) {
 export async function getSupportTickets(status?: string) {
   let query = supabase
     .from("support_tickets")
-    .select("*, users(username, email), ticket_responses(*)");
+    .select(`
+      *,
+      users:user_id (
+        username,
+        email
+      ),
+      ticket_responses (*)
+    `);
 
   if (status) {
     // Cast string to specific enum type if needed, or let Supabase handle it
@@ -244,10 +257,14 @@ export async function sendGlobalMessage(
 
 // Marriage Registry
 export async function getMarriageRegistries(status?: string) {
+  // Use simple foreign key syntax or specific column selection to avoid deep types
   let query = supabase
     .from("marriage_registry")
-    // Fix foreign key reference syntax if needed, assuming fk names are default or consistent
-    .select("*, user1:users!marriage_registry_user1_id_fkey(username, email), user2:users!marriage_registry_user2_id_fkey(username, email)");
+    .select(`
+      *,
+      user1:user1_id (username, email),
+      user2:user2_id (username, email)
+    `);
 
   if (status) {
     query = query.eq("status", status as any);
@@ -293,7 +310,12 @@ export async function createTestMatch(user1Id: string, user2Id: string, adminId:
 export async function getAdminUsers() {
   const { data, error } = await supabase
     .from("admin_users")
-    .select("*, admin_user_privileges(privilege:admin_privileges(*))");
+    .select(`
+      *,
+      admin_user_privileges (
+        privilege:privilege_id (*)
+      )
+    `);
   
   console.log("Get admin users:", { data, error });
   return { data, error };
