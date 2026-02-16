@@ -7,7 +7,17 @@ type TableName = keyof Tables;
 
 // --- USER MANAGEMENT ---
 
-export async function searchUsers(page = 1, limit = 20, search?: string) {
+export async function searchUsers(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  username?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+} = {}) {
+  const { page = 1, limit = 20, search, username, email, phone, location } = params;
+
   let query = supabase
     .from("users")
     .select("*", { count: "exact" });
@@ -15,6 +25,11 @@ export async function searchUsers(page = 1, limit = 20, search?: string) {
   if (search) {
     query = query.or(`email.ilike.%${search}%,username.ilike.%${search}%,phone.ilike.%${search}%,id.eq.${search}`);
   }
+
+  if (username) query = query.ilike('username', `%${username}%`);
+  if (email) query = query.ilike('email', `%${email}%`);
+  if (phone) query = query.ilike('phone', `%${phone}%`);
+  if (location) query = query.ilike('location', `%${location}%`);
 
   const from = (page - 1) * limit;
   const to = from + limit - 1;
@@ -244,7 +259,7 @@ export async function updateTicketStatus(ticketId: string, status: string) {
   const { error } = await supabase
     .from("support_tickets")
     .update({ 
-      status: status as any, 
+      status: status as "open" | "in_progress" | "resolved" | "closed", 
       updated_at: new Date().toISOString() 
     })
     .eq("id", ticketId);

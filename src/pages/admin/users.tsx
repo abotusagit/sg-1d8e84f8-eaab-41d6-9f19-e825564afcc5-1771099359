@@ -38,8 +38,7 @@ export default function UserSearch() {
   const handleSearch = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await searchUsers(filters);
-      if (error) throw error;
+      const { data } = await searchUsers(filters);
       setUsers(data || []);
       toast({
         title: "Search completed",
@@ -59,8 +58,7 @@ export default function UserSearch() {
 
   const handleViewUser = async (userId: string) => {
     try {
-      const { data, error } = await getUserById(userId);
-      if (error) throw error;
+      const data = await getUserById(userId);
       setSelectedUser(data);
       setShowEditDialog(true);
     } catch (error) {
@@ -77,15 +75,13 @@ export default function UserSearch() {
     if (!selectedUser) return;
     
     try {
-      const { error } = await updateUser(selectedUser.id, {
+      await updateUser(selectedUser.id, {
         username: selectedUser.username,
         email: selectedUser.email,
         phone: selectedUser.phone,
         location: selectedUser.location,
         is_active: selectedUser.is_active,
       });
-      
-      if (error) throw error;
       
       toast({
         title: "Success",
@@ -108,8 +104,7 @@ export default function UserSearch() {
     if (!confirm("Are you sure you want to delete this user?")) return;
     
     try {
-      const { error } = await deleteUser(userId);
-      if (error) throw error;
+      await deleteUser(userId);
       
       toast({
         title: "Success",

@@ -25,8 +25,17 @@ export default function TestMatchingPage() {
 
   const handleSearch = async (query: string, setResults: (data: any[]) => void) => {
     if (!query) return;
-    const { data } = await searchUsers({ username: query });
-    setResults(data || []);
+    try {
+      const { data } = await searchUsers({ username: query });
+      setResults(data || []);
+    } catch (error) {
+      console.error("Search error:", error);
+      toast({
+        title: "Search Failed",
+        description: "Could not search users",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleMatch = async () => {
@@ -34,9 +43,7 @@ export default function TestMatchingPage() {
     
     setIsMatching(true);
     try {
-      const { error } = await createTestMatch(selectedUser1.id, selectedUser2.id, admin!.id);
-      
-      if (error) throw error;
+      await createTestMatch(selectedUser1.id, selectedUser2.id);
       
       toast({
         title: "Match Created",

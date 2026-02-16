@@ -44,8 +44,7 @@ export default function MetaDataManagement() {
   const loadData = async (table: string) => {
     setIsLoading(true);
     try {
-      const { data: items, error } = await getMetaData(table as any);
-      if (error) throw error;
+      const items = await getMetaData(table as any);
       setData(items || []);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -64,8 +63,7 @@ export default function MetaDataManagement() {
 
     try {
       if (editingItem) {
-        const { error } = await updateMetaData(activeTab as any, editingItem.id, { name: newItemName });
-        if (error) throw error;
+        await updateMetaData(activeTab as any, editingItem.id, { name: newItemName });
         toast({ title: "Success", description: "Item updated successfully" });
       } else {
         const payload: any = { name: newItemName };
@@ -77,8 +75,7 @@ export default function MetaDataManagement() {
            payload.ip_address = newItemName;
         }
 
-        const { error } = await createMetaData(activeTab as any, payload);
-        if (error) throw error;
+        await createMetaData(activeTab as any, payload);
         toast({ title: "Success", description: "Item created successfully" });
       }
       
@@ -99,8 +96,7 @@ export default function MetaDataManagement() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure?")) return;
     try {
-      const { error } = await deleteMetaData(activeTab as any, id);
-      if (error) throw error;
+      await deleteMetaData(activeTab as any, id);
       toast({ title: "Success", description: "Item deleted" });
       loadData(activeTab);
     } catch (error) {
