@@ -70,10 +70,10 @@ export default function AdminSetup() {
       }
 
       // Step 2: Call the secure database function to set up admin
-      // This bypasses RLS and schema cache issues
-      const { error: rpcError } = await supabase.rpc('init_admin_account', {
-        p_id: userId,
-        p_email: email
+      // This bypasses schema cache issues by running directly on the DB
+      const { error: rpcError } = await supabase.rpc('setup_admin_v3', {
+        p_email: email,
+        p_id: userId
       });
 
       if (rpcError) {

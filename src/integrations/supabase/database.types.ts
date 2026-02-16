@@ -945,6 +945,10 @@ export type Database = {
         | { Args: { p_email: string; p_id: string }; Returns: undefined }
         | { Args: { p_email: string; p_id: string }; Returns: undefined }
       is_admin_users_empty: { Args: never; Returns: boolean }
+      setup_admin_v3: {
+        Args: { p_email: string; p_id: string }
+        Returns: undefined
+      }
       setup_first_admin: {
         Args: { admin_email: string; admin_id: string }
         Returns: undefined

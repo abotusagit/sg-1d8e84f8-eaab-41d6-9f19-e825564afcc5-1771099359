@@ -261,15 +261,10 @@ export async function updateTicketStatus(ticketId: string, status: string) {
     throw new Error(`Invalid status: ${status}`);
   }
 
-  // Explicitly cast to the specific union type required by the database
-  // We use 'as any' here because the generated Database types can be very strict about string literals
-  // and we've already validated the status against the allowed values above.
-  const typedStatus = status as any;
-
   const { error } = await supabase
     .from("support_tickets")
     .update({ 
-      status: typedStatus, 
+      status: status as any, 
       updated_at: new Date().toISOString() 
     })
     .eq("id", ticketId);
