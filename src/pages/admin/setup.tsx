@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,6 @@ export default function AdminSetup() {
       // Step 1: Create or sign in the user
       let userId: string;
       
-      // Try signing up first
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -60,77 +59,26 @@ export default function AdminSetup() {
           });
 
           if (signInError) {
-            setError(`Authentication failed: ${signInError.message}`);
-            setLoading(false);
-            return;
+            throw new Error(`Authentication failed: ${signInError.message}`);
           }
-
           userId = signInData.user!.id;
         } else {
-          setError(`Sign up failed: ${signUpError.message}`);
-          setLoading(false);
-          return;
+          throw new Error(`Sign up failed: ${signUpError.message}`);
         }
       } else {
         userId = signUpData.user!.id;
       }
 
-      // Step 2: Add user to admin_users table
-      const { error: adminInsertError } = await supabase
-        .from("admin_users")
-        .insert({
-          id: userId,
-          email: email,
-          role: "full_admin",
-        });
+      // Step 2: Call the secure database function to set up admin
+      // This bypasses RLS and schema cache issues
+      const { error: rpcError } = await supabase.rpc('setup_first_admin', {
+        admin_id: userId,
+        admin_email: email
+      });
 
-      if (adminInsertError) {
-        console.error("Admin insert error:", adminInsertError);
-        
-        // Check for specific error types
-        if (adminInsertError.message.includes("duplicate") || 
-            adminInsertError.code === "23505") {
-          setError("This user is already an admin. Please use the login page.");
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-        
-        if (adminInsertError.message.includes("policy") || 
-            adminInsertError.message.includes("permission") ||
-            adminInsertError.message.includes("privilege")) {
-          setError("Admin setup is already complete. An admin user already exists. Please use the login page.");
-          await supabase.auth.signOut();
-          setLoading(false);
-          return;
-        }
-
-        setError(`Failed to create admin user: ${adminInsertError.message}`);
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      // Step 3: Grant all privileges to the new admin
-      const { data: privileges } = await supabase
-        .from("admin_privileges")
-        .select("id");
-
-      if (privileges && privileges.length > 0) {
-        const privilegeInserts = privileges.map(p => ({
-          user_id: userId,
-          privilege_id: p.id,
-          granted_by: userId,
-        }));
-
-        const { error: privilegeError } = await supabase
-          .from("admin_user_privileges")
-          .insert(privilegeInserts);
-
-        if (privilegeError) {
-          console.error("Privilege grant error:", privilegeError);
-          // Don't fail the setup if privilege grant fails, admin is still created
-        }
+      if (rpcError) {
+        console.error("RPC Error:", rpcError);
+        throw new Error(`Failed to configure admin: ${rpcError.message}`);
       }
 
       setSuccess(true);

@@ -942,6 +942,10 @@ export type Database = {
     }
     Functions: {
       is_admin_users_empty: { Args: never; Returns: boolean }
+      setup_first_admin: {
+        Args: { admin_email: string; admin_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       admin_role: "full_admin" | "custom_admin"
