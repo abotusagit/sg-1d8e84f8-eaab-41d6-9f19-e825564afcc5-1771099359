@@ -71,7 +71,7 @@ export default function AdminSetup() {
 
       // Step 2: Call the secure database function to set up admin
       // This bypasses schema cache issues by running directly on the DB
-      const { error: rpcError } = await supabase.rpc('setup_admin_v3', {
+      const { error: rpcError } = await supabase.rpc('setup_admin_v4', {
         p_email: email,
         p_id: userId
       });
@@ -106,10 +106,8 @@ export default function AdminSetup() {
             <div className="mx-auto mb-4 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
               <Shield className="h-6 w-6 text-purple-600" />
             </div>
-            <CardTitle>Admin System Setup</CardTitle>
-            <CardDescription>
-              Create your first admin account to manage Marriagepal
-            </CardDescription>
+            <CardTitle>Admin Setup</CardTitle>
+            <CardDescription>Create the first administrator account</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
@@ -130,62 +128,36 @@ export default function AdminSetup() {
 
             <form onSubmit={handleSetup} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Admin Email</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@marriagepal.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
                   required
+                  placeholder="admin@marriagepal.com"
                 />
               </div>
-
+              
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Minimum 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
                   required
+                  minLength={8}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Re-enter password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              <Button
-                type="submit"
+              <Button 
+                type="submit" 
                 className="w-full"
                 disabled={loading}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Admin Account...
-                  </>
-                ) : (
-                  "Create Admin Account"
-                )}
+                {loading ? "Setting up..." : "Create Admin Account"}
               </Button>
-
-              <p className="text-sm text-center text-muted-foreground">
-                This will create a Full Admin account with all privileges
-              </p>
             </form>
           </CardContent>
         </Card>

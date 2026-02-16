@@ -58,12 +58,42 @@ export default function ReportsPage() {
       .from("matches")
       .select("*", { count: "exact", head: true });
 
+    // Membership Distribution
+    const { data: membershipData } = await supabase
+      .from("users")
+      .select("membership_type");
+    
+    const membershipStats = membershipData?.reduce((acc: any, user) => {
+      const type = user.membership_type || 'free';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Country Distribution
+    const { data: countryData } = await supabase
+      .from("users")
+      .select("country");
+      
+    const countryStats = countryData?.reduce((acc: any, user) => {
+      const country = user.country || 'Unknown';
+      acc[country] = (acc[country] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Sort countries by count
+    const topCountries = Object.entries(countryStats)
+      .sort(([,a]: any, [,b]: any) => b - a)
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+
     setStats({
       totalUsers: totalUsers || 0,
       activeUsers: activeUsers || 0,
       premiumUsers: premiumUsers || 0,
       totalRevenue,
-      matchesCount: matchesCount || 0
+      matchesCount: matchesCount || 0,
+      membershipStats,
+      topCountries
     });
   };
 
@@ -160,17 +190,47 @@ export default function ReportsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Users by Country</CardTitle>
+                    <CardDescription>Top 5 locations</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-[300px] flex items-center justify-center text-slate-400">
-                    <Map className="w-16 h-16 opacity-20" />
+                  <CardContent>
+                    <div className="space-y-4">
+                      {stats.topCountries?.map((country: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span className="text-sm font-medium">{country.name}</span>
+                          </div>
+                          <span className="text-sm text-slate-500">{country.count} users</span>
+                        </div>
+                      ))}
+                      {(!stats.topCountries || stats.topCountries.length === 0) && (
+                        <div className="text-center py-8 text-slate-400">No location data available</div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader>
                     <CardTitle>Membership Distribution</CardTitle>
+                    <CardDescription>By plan type</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-[300px] flex items-center justify-center text-slate-400">
-                    <Users className="w-16 h-16 opacity-20" />
+                  <CardContent>
+                    <div className="space-y-4">
+                      {Object.entries(stats.membershipStats || {}).map(([type, count]: any) => (
+                        <div key={type} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="capitalize font-medium">{type}</span>
+                            <span className="text-slate-500">{Math.round((count / stats.totalUsers) * 100)}% ({count})</span>
+                          </div>
+                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${type === 'vip' ? 'bg-purple-500' : type === 'premium' ? 'bg-pink-500' : 'bg-slate-300'}`} 
+                              style={{ width: `${(count / stats.totalUsers) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </div>

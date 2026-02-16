@@ -42,19 +42,43 @@ export async function searchUsers(params: {
   return { data, count };
 }
 
-export async function getUserById(id: string) {
+export async function getUserById(userId: string) {
   const { data, error } = await supabase
     .from("users")
     .select(`
       *,
-      match_criteria(*),
-      profiles(*)
+      profiles(*),
+      match_criteria(
+        *,
+        match_criteria_education(education(name)),
+        match_criteria_religion(religions(name)),
+        match_criteria_race(races(name))
+      )
     `)
-    .eq("id", id)
+    .eq("id", userId)
     .single();
-  
+    
   if (error) throw error;
-  return data;
+  
+  // Cast to any to allow structural modification for frontend consumption
+  const userData = data as any;
+
+  // Flatten nested arrays for easier frontend consumption
+  if (userData.match_criteria && Array.isArray(userData.match_criteria) && userData.match_criteria.length > 0) {
+    const criteria = userData.match_criteria[0];
+    
+    // Add flattened properties
+    const enrichedCriteria = {
+      ...criteria,
+      education: criteria.match_criteria_education?.map((e: any) => e.education?.name) || [],
+      religion: criteria.match_criteria_religion?.map((r: any) => r.religions?.name) || [],
+      race: criteria.match_criteria_race?.map((r: any) => r.races?.name) || []
+    };
+    
+    userData.match_criteria = enrichedCriteria;
+  }
+  
+  return userData;
 }
 
 export async function updateUser(id: string, updates: any) {

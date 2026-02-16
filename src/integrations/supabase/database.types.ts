@@ -949,6 +949,10 @@ export type Database = {
         Args: { p_email: string; p_id: string }
         Returns: undefined
       }
+      setup_admin_v4: {
+        Args: { p_email: string; p_id: string }
+        Returns: undefined
+      }
       setup_first_admin: {
         Args: { admin_email: string; admin_id: string }
         Returns: undefined
