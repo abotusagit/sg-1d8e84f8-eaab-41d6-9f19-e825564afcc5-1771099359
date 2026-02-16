@@ -57,25 +57,15 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const fetchAdminProfile = async (userId: string, email: string) => {
     try {
-      // First check if user exists in admin_users table
-      const { data: adminData, error } = await supabase
+      // Step 1: Fetch Admin User (Simple query, no joins)
+      const { data: adminData, error: adminError } = await supabase
         .from("admin_users")
-        .select(`
-          *,
-          admin_user_privileges (
-            privilege:admin_privileges (
-              id,
-              name,
-              description,
-              category
-            )
-          )
-        `)
+        .select("*")
         .eq("id", userId)
         .single();
 
-      if (error || !adminData) {
-        console.error("Not an admin user", error);
+      if (adminError || !adminData) {
+        console.error("Not an admin user", adminError);
         await supabase.auth.signOut();
         toast({
           title: "Access Denied",
@@ -85,8 +75,24 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Transform privileges data structure
-      const privileges = adminData.admin_user_privileges?.map((p: any) => p.privilege) || [];
+      // Step 2: Fetch Privileges separately to avoid 'PGRST200 relationship not found' errors
+      let privileges: any[] = [];
+      
+      const { data: userPrivs, error: privsError } = await supabase
+        .from("admin_user_privileges")
+        .select("privilege_id")
+        .eq("user_id", userId);
+
+      if (userPrivs && userPrivs.length > 0) {
+        const privIds = userPrivs.map(p => p.privilege_id);
+        
+        const { data: privDetails } = await supabase
+          .from("admin_privileges")
+          .select("id, name, description, category")
+          .in("id", privIds);
+          
+        privileges = privDetails || [];
+      }
 
       setAdmin({
         id: adminData.id,
