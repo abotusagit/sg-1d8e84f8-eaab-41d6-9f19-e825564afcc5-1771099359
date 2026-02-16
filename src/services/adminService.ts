@@ -247,7 +247,8 @@ export async function getSupportTickets(status?: string) {
     .order("created_at", { ascending: false });
 
   if (status && status !== "all") {
-    query = query.eq("status", status);
+    // Cast to any to bypass strict Enum type check for the query
+    query = query.eq("status", status as any);
   }
 
   const { data, error } = await query;
@@ -264,6 +265,7 @@ export async function updateTicketStatus(ticketId: string, status: string) {
   const { error } = await supabase
     .from("support_tickets")
     .update({ 
+      // Cast to any to bypass strict Enum type check for the update
       status: status as any, 
       updated_at: new Date().toISOString() 
     })
