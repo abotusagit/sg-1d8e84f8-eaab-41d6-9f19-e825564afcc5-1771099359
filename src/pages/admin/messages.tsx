@@ -35,9 +35,7 @@ export default function GlobalMessages() {
     setIsSending(true);
     try {
       const targetIds = targetId ? [targetId] : [];
-      const { error } = await sendGlobalMessage(subject, content, targetType, targetIds, admin!.id);
-      
-      if (error) throw error;
+      await sendGlobalMessage(subject, content, targetType, targetIds, admin!.id);
       
       toast({ title: "Success", description: "Message sent successfully" });
       setSubject("");

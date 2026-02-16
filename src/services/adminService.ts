@@ -256,10 +256,18 @@ export async function getSupportTickets(status?: string) {
 }
 
 export async function updateTicketStatus(ticketId: string, status: string) {
+  const validStatuses = ["open", "in_progress", "resolved", "closed"];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid status: ${status}`);
+  }
+
+  // Explicitly cast to the specific union type required by the database
+  const typedStatus = status as "open" | "in_progress" | "resolved" | "closed";
+
   const { error } = await supabase
     .from("support_tickets")
     .update({ 
-      status: status as "open" | "in_progress" | "resolved" | "closed", 
+      status: typedStatus, 
       updated_at: new Date().toISOString() 
     })
     .eq("id", ticketId);

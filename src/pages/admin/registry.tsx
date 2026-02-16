@@ -33,23 +33,23 @@ export default function RegistryPage() {
       setRegistries(data || []);
     } catch (error) {
       console.error("Error loading registries:", error);
+      toast({ title: "Error", description: "Failed to load registries", variant: "destructive" });
     }
   };
 
   const handleUpdate = async () => {
     if (!selectedRegistry) return;
     try {
-      const { error } = await updateMarriageRegistry(selectedRegistry.id, {
+      await updateMarriageRegistry(selectedRegistry.id, {
         admin_notes: notes,
         gift_sent: giftSent
       });
-      
-      if (error) throw error;
       
       toast({ title: "Success", description: "Registry updated successfully" });
       setIsDialogOpen(false);
       loadRegistries();
     } catch (error) {
+      console.error("Update error:", error);
       toast({ title: "Error", description: "Update failed", variant: "destructive" });
     }
   };

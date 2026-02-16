@@ -29,13 +29,14 @@ export default function PrivilegesPage() {
 
   const loadData = async () => {
     try {
-      const { data: users } = await getAdminUsers();
+      const users = await getAdminUsers();
       setAdminUsers(users || []);
       
       const { data: privileges } = await supabase.from("admin_privileges").select("*").order("category");
       setAllPrivileges(privileges || []);
     } catch (error) {
       console.error("Error loading data:", error);
+      toast({ title: "Error", description: "Failed to load admin users", variant: "destructive" });
     }
   };
 
@@ -44,19 +45,20 @@ export default function PrivilegesPage() {
     
     try {
       if (isGranted) {
-        await grantPrivilege(selectedAdmin.id, privilegeId);
+        await grantPrivilege(selectedAdmin.id, privilegeId, admin!.id);
       } else {
         await revokePrivilege(selectedAdmin.id, privilegeId);
       }
       
       // Refresh local state
       const updatedPrivileges = isGranted 
-        ? [...selectedAdmin.admin_user_privileges, { privilege_id: privilegeId }]
-        : selectedAdmin.admin_user_privileges.filter((p: any) => p.privilege_id !== privilegeId);
+        ? [...selectedAdmin.admin_user_privileges, { privilege: { id: privilegeId } }]
+        : selectedAdmin.admin_user_privileges.filter((p: any) => p.privilege.id !== privilegeId);
         
       setSelectedAdmin({ ...selectedAdmin, admin_user_privileges: updatedPrivileges });
       loadData(); // Reload full data
     } catch (error) {
+      console.error("Privilege toggle error:", error);
       toast({ title: "Error", description: "Failed to update privilege", variant: "destructive" });
     }
   };

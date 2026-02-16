@@ -26,23 +26,24 @@ export default function SupportPage() {
   const loadTickets = async () => {
     try {
       const status = filterStatus === "all" ? undefined : filterStatus;
-      const { data } = await getSupportTickets(status);
+      const data = await getSupportTickets(status);
       setTickets(data || []);
     } catch (error) {
       console.error("Error loading tickets:", error);
+      toast({ title: "Error", description: "Failed to load tickets", variant: "destructive" });
     }
   };
 
   const handleStatusUpdate = async (ticketId: string, newStatus: any) => {
     try {
-      const { error } = await updateTicketStatus(ticketId, newStatus);
-      if (error) throw error;
+      await updateTicketStatus(ticketId, newStatus);
       toast({ title: "Success", description: "Ticket status updated" });
       loadTickets();
       if (selectedTicket?.id === ticketId) {
         setSelectedTicket({ ...selectedTicket, status: newStatus });
       }
     } catch (error) {
+      console.error("Status update error:", error);
       toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
     }
   };
@@ -50,16 +51,16 @@ export default function SupportPage() {
   const handleSendResponse = async () => {
     if (!response || !selectedTicket) return;
     try {
-      const { error } = await addTicketResponse(selectedTicket.id, admin!.id, response);
-      if (error) throw error;
+      await addTicketResponse(selectedTicket.id, admin!.id, response);
       toast({ title: "Success", description: "Response sent" });
       setResponse("");
       loadTickets();
       // Refresh selected ticket to show new response
-      const { data } = await getSupportTickets();
+      const data = await getSupportTickets();
       const updated = data?.find((t: any) => t.id === selectedTicket.id);
       if (updated) setSelectedTicket(updated);
     } catch (error) {
+      console.error("Response error:", error);
       toast({ title: "Error", description: "Failed to send response", variant: "destructive" });
     }
   };
