@@ -314,6 +314,59 @@ export default function UserSearch() {
                     Update User
                   </Button>
                 </div>
+
+                {/* Profile & Match Criteria Display */}
+                <div className="border-t pt-4 mt-4 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg text-slate-900 mb-2">Profile Details</h3>
+                    {selectedUser.profiles ? (
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="col-span-2">
+                          <span className="font-medium">Bio: </span>
+                          <span className="text-slate-600">{selectedUser.profiles.bio || "No bio"}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Gender: </span>
+                          <span className="text-slate-600 capitalize">{selectedUser.profiles.gender || "-"}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Birth Date: </span>
+                          <span className="text-slate-600">{selectedUser.profiles.birth_date || "-"}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">No profile created yet</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-lg text-slate-900 mb-2">Match Preferences</h3>
+                    {selectedUser.match_criteria ? (
+                      <div className="grid grid-cols-2 gap-2 text-sm bg-slate-50 p-3 rounded">
+                        <div>
+                          <span className="font-medium">Age Range: </span>
+                          <span className="text-slate-600">
+                            {selectedUser.match_criteria.min_age} - {selectedUser.match_criteria.max_age}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Religion: </span>
+                          <span className="text-slate-600">{selectedUser.match_criteria.religion || "Any"}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Height: </span>
+                          <span className="text-slate-600">{selectedUser.match_criteria.min_height}cm+</span>
+                        </div>
+                        <div>
+                          <span className="font-medium">Education: </span>
+                          <span className="text-slate-600">{selectedUser.match_criteria.education || "Any"}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">No match criteria set</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </DialogContent>

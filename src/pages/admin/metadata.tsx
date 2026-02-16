@@ -19,6 +19,7 @@ const META_TABLES = [
   { id: "banned_ip", label: "Banned IPs" },
   { id: "education", label: "Education" },
   { id: "height", label: "Height" },
+  { id: "personality", label: "Personality" },
   { id: "hobbies", label: "Hobbies" },
   { id: "religions", label: "Religions" },
   { id: "races", label: "Races" },
