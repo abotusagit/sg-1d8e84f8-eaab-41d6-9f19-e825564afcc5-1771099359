@@ -17,6 +17,11 @@ import {
   LogOut,
   Menu,
   X,
+  UserCheck,
+  Ban,
+  Globe,
+  Briefcase,
+  BookOpen,
 } from "lucide-react";
 
 interface AdminLayoutProps {
