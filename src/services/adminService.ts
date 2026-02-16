@@ -264,8 +264,7 @@ export async function updateTicketStatus(ticketId: string, status: string) {
   const { error } = await supabase
     .from("support_tickets")
     .update({ 
-      // @ts-ignore - Validated at runtime, bypassing strict enum type check
-      status: status, 
+      status: status as any, 
       updated_at: new Date().toISOString() 
     })
     .eq("id", ticketId);
